@@ -1,0 +1,16 @@
+venv/
+ENV/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+Thumbs.db
+*.log
+audios/
+videos/
+*.wav
+*.mp4
+*.env
+.vscode/
