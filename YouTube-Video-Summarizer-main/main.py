@@ -1,78 +1,127 @@
-from flask import Flask, jsonify, request, render_template, flash, redirect, url_for
+from flask import Flask, jsonify, request
+from flask_login import (
+    LoginManager,
+    current_user,
+    login_required,
+    login_user,
+    logout_user,
+)
+from flask_cors import CORS
+from dotenv import load_dotenv
 from video import VideoProcessor
+from models import db, User
 import os
 import logging
 
-# Configure logging
+load_dotenv()
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # Change this in production
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-me")
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 
-# Initialize video processor
+db.init_app(app)
+
+login_manager = LoginManager(app)
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    return jsonify({"error": "Authentication required"}), 401
+
+
+# Vite dev server runs on 5173; supports_credentials is required for the session cookie
+CORS(app, supports_credentials=True, origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")])
+
 processor = VideoProcessor()
 
-@app.route("/")
-def index():
-    return render_template('index.html')
 
-@app.route("/process", methods=['POST'])
-def process_video():
-    try:
-        # Get form data
-        url = request.form.get('url', '').strip()
-        method = request.form.get('method', 'extractive')
-        percentage = int(request.form.get('percentage', 25))
-        
-        # Validate inputs
-        if not url:
-            flash('Please provide a YouTube URL', 'error')
-            return redirect(url_for('index'))
-        
-        if not url.startswith(('https://www.youtube.com/', 'https://youtu.be/')):
-            flash('Please provide a valid YouTube URL', 'error')
-            return redirect(url_for('index'))
-        
-        logger.info(f"Processing video: {url} with method: {method}")
-        
-        # Process the video
-        result = processor.process_video(url, method, percentage / 100.0)
-        
-        return render_template('result.html', 
-                             url=url, 
-                             text=result['text'], 
-                             summary=result['summary'],
-                             method=method,
-                             percentage=percentage)
-    
-    except Exception as e:
-        logger.error(f"Error processing video: {str(e)}")
-        flash(f'Error processing video: {str(e)}', 'error')
-        return redirect(url_for('index'))
+@app.route("/api/auth/register", methods=["POST"])
+def register():
+    data = request.get_json() or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
 
-@app.route("/api/process", methods=['POST'])
+    if not username or not password:
+        return jsonify({"error": "Username and password are required"}), 400
+    if len(password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters"}), 400
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "Username already taken"}), 409
+
+    user = User(username=username)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    login_user(user)
+    return jsonify({"user": user.to_dict()}), 201
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    data = request.get_json() or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.check_password(password):
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    login_user(user)
+    return jsonify({"user": user.to_dict()})
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+@login_required
+def logout():
+    logout_user()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/auth/me", methods=["GET"])
+def me():
+    if not current_user.is_authenticated:
+        return jsonify({"user": None})
+    return jsonify({"user": current_user.to_dict()})
+
+
+@app.route("/api/process", methods=["POST"])
+@login_required
 def api_process_video():
-    """API endpoint for processing videos"""
     try:
-        data = request.get_json()
-        url = data.get('url')
-        method = data.get('method', 'extractive')
-        percentage = data.get('percentage', 25) / 100.0
-        
+        data = request.get_json() or {}
+        url = data.get("url")
+        method = data.get("method", "extractive")
+        percentage = data.get("percentage", 25) / 100.0
+
         if not url:
-            return jsonify({'error': 'URL is required'}), 400
-        
+            return jsonify({"error": "URL is required"}), 400
+        if not url.startswith(("https://www.youtube.com/", "https://youtu.be/")):
+            return jsonify({"error": "Please provide a valid YouTube URL"}), 400
+
+        logger.info(f"Processing video: {url} with method: {method}")
         result = processor.process_video(url, method, percentage)
         return jsonify(result)
-    
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error processing video: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
-    # Create necessary directories
-    os.makedirs('./videos', exist_ok=True)
-    os.makedirs('./audios', exist_ok=True)
-    os.makedirs('./audios/chunks', exist_ok=True)
-    
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    os.makedirs("./videos", exist_ok=True)
+    os.makedirs("./audios", exist_ok=True)
+    os.makedirs("./audios/chunks", exist_ok=True)
+
+    with app.app_context():
+        db.create_all()
+
+    app.run(debug=True, host="0.0.0.0", port=5000)

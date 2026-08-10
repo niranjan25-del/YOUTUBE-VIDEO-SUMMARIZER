@@ -2,6 +2,7 @@ import os
 import math
 import glob
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict
 from urllib.parse import urlparse, parse_qs
 
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 class VideoProcessor:
     def __init__(self):
         self.recognizer = sr.Recognizer()
+        self.recognizer.operation_timeout = 10  # bound each Google Speech API call
         self.video_path = "./videos"
         self.audio_path = "./audios"
         self.chunks_path = "./audios/chunks"
@@ -130,25 +132,44 @@ class VideoProcessor:
                     keep_silence=2000
                 )
 
-            full_text = ""
+            chunk_files = []
             for i, chunk in enumerate(chunks, 1):
                 chunk_file = os.path.join(self.chunks_path, f"chunk{i}.wav")
                 chunk.export(chunk_file, format="wav")
-                with sr.AudioFile(chunk_file) as source:
-                    try:
-                        audio = self.recognizer.record(source)
-                        text = self.recognizer.recognize_google(audio)
-                        full_text += f"{text.capitalize()}. "
-                    except sr.UnknownValueError:
-                        logger.warning(f"Unrecognized audio in chunk {i}")
-                    except sr.RequestError as e:
-                        logger.error(f"Speech recognition error: {e}")
+                chunk_files.append((i, chunk_file))
 
+            results = {}
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                futures = {
+                    executor.submit(self._recognize_chunk, i, chunk_file): i
+                    for i, chunk_file in chunk_files
+                }
+                for future in as_completed(futures):
+                    i, text = future.result()
+                    if text:
+                        results[i] = text
+
+            full_text = " ".join(results[i] for i in sorted(results))
             return full_text.strip()
 
         except Exception as e:
             logger.error(f"Error generating text: {str(e)}")
             raise
+
+    def _recognize_chunk(self, index: int, chunk_file: str):
+        """Recognize a single audio chunk, returning (index, text or None)"""
+        with sr.AudioFile(chunk_file) as source:
+            try:
+                audio = self.recognizer.record(source)
+                text = self.recognizer.recognize_google(audio)
+                return index, f"{text.capitalize()}."
+            except sr.UnknownValueError:
+                logger.warning(f"Unrecognized audio in chunk {index}")
+            except sr.RequestError as e:
+                logger.error(f"Speech recognition error in chunk {index}: {e}")
+            except OSError as e:
+                logger.error(f"Network error recognizing chunk {index}, skipping: {e}")
+        return index, None
 
     def generate_summary_extractive(self, text: str, ratio: float = 0.25) -> str:
         """Use BERT to generate extractive summary"""
@@ -169,8 +190,6 @@ class VideoProcessor:
             import google.generativeai as genai
             from dotenv import load_dotenv
             load_dotenv()
-        
-            print("🔑 Loaded GEMINI_API_KEY:", os.getenv("GEMINI_API_KEY"))
 
             logger.info("Generating abstractive summary using Gemini...")
 
@@ -178,7 +197,7 @@ class VideoProcessor:
                 api_key=os.getenv("GEMINI_API_KEY")
             )
 
-            model = genai.GenerativeModel("gemini-1.5-flash-latest")
+            model = genai.GenerativeModel("gemini-flash-latest")
 
             # Calculate target length based on ratio
             original_words = len(text.split())
