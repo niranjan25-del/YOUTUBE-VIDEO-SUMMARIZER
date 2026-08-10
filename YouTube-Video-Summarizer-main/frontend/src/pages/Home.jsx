@@ -93,14 +93,16 @@ export function Home() {
             value={percentage}
             onChange={(e) => setPercentage(Number(e.target.value))}
             className="slider"
+            style={{ "--fill": `${((percentage - 10) / 40) * 100}%` }}
           />
           <p className="slider-value">{percentage}% of original length</p>
           <small>Lower values create shorter summaries, higher values preserve more detail</small>
         </div>
 
-        {error && <p className="form-error">{error}</p>}
+        {error && <p className="form-error">⚠️ {error}</p>}
 
         <button type="submit" className="submit-btn" disabled={processing}>
+          {processing && <span className="spinner" />}
           {processing ? "Processing... this can take a while" : "📝 Generate Summary"}
         </button>
       </form>

@@ -29,13 +29,15 @@ export function Login() {
 
   return (
     <div className="auth-card">
-      <h1>Log In</h1>
+      <h1>🎬 Welcome Back</h1>
+      <p className="subtitle">Log in to summarize your next video</p>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor="username">Username</label>
           <input
             id="username"
             type="text"
+            placeholder="yourname"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
@@ -47,13 +49,15 @@ export function Login() {
           <input
             id="password"
             type="password"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
         </div>
-        {error && <p className="form-error">{error}</p>}
+        {error && <p className="form-error">⚠️ {error}</p>}
         <button type="submit" className="submit-btn" disabled={submitting}>
+          {submitting && <span className="spinner" />}
           {submitting ? "Logging in..." : "Log In"}
         </button>
       </form>

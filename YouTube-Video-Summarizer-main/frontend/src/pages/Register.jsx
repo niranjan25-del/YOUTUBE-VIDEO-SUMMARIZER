@@ -26,13 +26,15 @@ export function Register() {
 
   return (
     <div className="auth-card">
-      <h1>Create Account</h1>
+      <h1>✨ Create Account</h1>
+      <p className="subtitle">Join to start summarizing videos in seconds</p>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor="username">Username</label>
           <input
             id="username"
             type="text"
+            placeholder="yourname"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
@@ -44,6 +46,7 @@ export function Register() {
           <input
             id="password"
             type="password"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -51,8 +54,9 @@ export function Register() {
           />
           <small>At least 6 characters</small>
         </div>
-        {error && <p className="form-error">{error}</p>}
+        {error && <p className="form-error">⚠️ {error}</p>}
         <button type="submit" className="submit-btn" disabled={submitting}>
+          {submitting && <span className="spinner" />}
           {submitting ? "Creating account..." : "Register"}
         </button>
       </form>
