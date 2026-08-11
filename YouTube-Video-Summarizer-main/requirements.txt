@@ -6,7 +6,6 @@ cachetools==5.5.2
 catalogue==2.0.10
 certifi==2025.6.15
 charset-normalizer==3.4.2
-chess==1.10.0
 click==8.2.1
 cloudpathlib==0.21.1
 colorama==0.4.6
@@ -31,6 +30,7 @@ google-auth==2.40.3
 google-auth-httplib2==0.2.0
 google-generativeai==0.8.5
 googleapis-common-protos==1.70.0
+gunicorn==23.0.0
 grpcio==1.73.1
 grpcio-status==1.71.2
 httplib2==0.22.0
@@ -70,14 +70,10 @@ pyasn1_modules==0.4.2
 pydantic==2.11.7
 pydantic_core==2.33.2
 pydub==0.25.1
-pygame==2.5.2
 Pygments==2.19.2
-PyOpenGL==3.1.7
 pyparsing==3.2.3
-pytesseract==0.3.13
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
-pytube==15.0.0
 pytz==2025.2
 PyYAML==6.0.2
 regex==2024.11.6
@@ -101,9 +97,6 @@ tbb==2021.12.0
 thinc==8.3.6
 threadpoolctl==3.6.0
 tokenizers==0.21.2
-torch==2.7.1+cpu
-torchaudio==2.7.1+cpu
-torchvision==0.22.1+cpu
 tqdm==4.67.1
 transformers==4.53.0
 typer==0.16.0

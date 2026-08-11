@@ -22,6 +22,15 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-me")
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 
+# The deployed frontend (Vercel) and backend (Render) are on different
+# domains, so the session cookie needs SameSite=None to be sent on those
+# cross-site requests. Secure=True requires HTTPS, which is why this only
+# applies when actually deployed (Render sets RENDER=true) -- local dev
+# runs over plain http and needs the permissive defaults instead.
+if os.getenv("RENDER"):
+    app.config["SESSION_COOKIE_SAMESITE"] = "None"
+    app.config["SESSION_COOKIE_SECURE"] = True
+
 db.init_app(app)
 
 login_manager = LoginManager(app)
@@ -38,9 +47,17 @@ def unauthorized():
 
 
 # Vite dev server runs on 5173; supports_credentials is required for the session cookie
-CORS(app, supports_credentials=True, origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")])
+frontend_origins = [o.strip() for o in os.getenv("FRONTEND_ORIGIN", "http://localhost:5173").split(",") if o.strip()]
+CORS(app, supports_credentials=True, origins=frontend_origins)
 
 processor = VideoProcessor()
+
+os.makedirs("./videos", exist_ok=True)
+os.makedirs("./audios", exist_ok=True)
+os.makedirs("./audios/chunks", exist_ok=True)
+
+with app.app_context():
+    db.create_all()
 
 
 @app.route("/api/auth/register", methods=["POST"])
@@ -117,11 +134,4 @@ def api_process_video():
 
 
 if __name__ == "__main__":
-    os.makedirs("./videos", exist_ok=True)
-    os.makedirs("./audios", exist_ok=True)
-    os.makedirs("./audios/chunks", exist_ok=True)
-
-    with app.app_context():
-        db.create_all()
-
     app.run(debug=True, host="0.0.0.0", port=5000)
