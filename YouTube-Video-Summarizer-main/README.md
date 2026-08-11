@@ -73,7 +73,12 @@ run the Flask backend (it needs a persistent process, and `torch` +
 
 - **Root Directory:** `YouTube-Video-Summarizer-main`
 - **Build Command:** `bash build.sh`
-- **Start Command:** `gunicorn main:app --bind 0.0.0.0:$PORT`
+- **Start Command:** `gunicorn main:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1 --threads 4 --worker-class gthread`
+  (threaded, not multi-process -- video processing is I/O-bound (network
+  calls to YouTube/Google/Gemini), and each additional gunicorn *worker*
+  would reload the whole torch/transformers stack into its own memory;
+  threads share one process's memory instead, and let the server keep
+  responding to other requests, e.g. login, while one video is processing)
 - **Instance size:** needs enough RAM for `torch`/`transformers` — a free
   512MB tier will likely OOM; use at least a small paid instance.
 - **Python version:** pinned via `.python-version` (3.11.9) — Render
