@@ -25,8 +25,13 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await api.logout();
-    setUser(null);
+    try {
+      await api.logout();
+    } finally {
+      // Always clear local state, even if the server call fails (e.g. the
+      // session already expired) -- the user still expects to be logged out.
+      setUser(null);
+    }
   };
 
   return (
