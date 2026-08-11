@@ -20,7 +20,11 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
+# Render's local filesystem is wiped on every restart/redeploy unless the
+# DB lives on an attached persistent Disk -- DATABASE_URL should point
+# there in production (e.g. sqlite:////var/data/users.db once a Disk is
+# mounted at /var/data). Defaults to the old relative path for local dev.
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///users.db")
 
 # The deployed frontend (Vercel) and backend (Render) are on different
 # domains, so the session cookie needs SameSite=None to be sent on those

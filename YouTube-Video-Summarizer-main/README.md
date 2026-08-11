@@ -79,16 +79,25 @@ run the Flask backend (it needs a persistent process, and `torch` +
   would reload the whole torch/transformers stack into its own memory;
   threads share one process's memory instead, and let the server keep
   responding to other requests, e.g. login, while one video is processing)
-- **Instance size:** needs enough RAM for `torch`/`transformers` — a free
-  512MB tier will likely OOM; use at least a small paid instance.
+- **Instance size:** needs enough RAM for `torch`/`transformers` —
+  Render's Free *and* Starter tiers both cap out at 512MB, which isn't
+  enough (just importing the ML stack at startup gets close to that
+  ceiling) and will crash-loop under load. Use at least **Standard (2GB)**.
 - **Python version:** pinned via `.python-version` (3.11.9) — Render
   defaults new services to a much newer Python that doesn't have wheels
   yet for several pinned scientific-stack packages (`blis`, `spacy`, etc).
+- **Persistent disk:** Render's filesystem is wiped on every
+  restart/redeploy by default, which would silently delete all
+  registered users each time. Attach a Disk (Service → Settings →
+  Disks → Add Disk), e.g. mounted at `/var/data`, then set
+  `DATABASE_URL=sqlite:////var/data/users.db` (four slashes — three for
+  the `sqlite://` scheme + one for the absolute path).
 - **Environment variables:**
   - `GEMINI_API_KEY` — your Gemini API key
   - `FLASK_SECRET_KEY` — a random secret (`python -c "import secrets; print(secrets.token_hex(32))"`)
   - `FRONTEND_ORIGIN` — your deployed frontend URL(s), comma-separated if more than one
     (e.g. `https://your-app.vercel.app,http://localhost:5173`)
+  - `DATABASE_URL` — see "Persistent disk" above; omit for an ephemeral DB
 
 Render automatically sets `RENDER=true`, which `main.py` uses to switch
 the session cookie to `SameSite=None; Secure` (required for the frontend
