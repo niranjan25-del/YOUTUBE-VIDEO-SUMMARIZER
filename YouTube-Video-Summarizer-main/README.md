@@ -76,6 +76,9 @@ run the Flask backend (it needs a persistent process, and `torch` +
 - **Start Command:** `gunicorn main:app --bind 0.0.0.0:$PORT`
 - **Instance size:** needs enough RAM for `torch`/`transformers` — a free
   512MB tier will likely OOM; use at least a small paid instance.
+- **Python version:** pinned via `.python-version` (3.11.9) — Render
+  defaults new services to a much newer Python that doesn't have wheels
+  yet for several pinned scientific-stack packages (`blis`, `spacy`, etc).
 - **Environment variables:**
   - `GEMINI_API_KEY` — your Gemini API key
   - `FLASK_SECRET_KEY` — a random secret (`python -c "import secrets; print(secrets.token_hex(32))"`)
